@@ -12,14 +12,16 @@ function formatPrice(n) {
 }
 
 function renderProducts() {
+    console.log("renderProducts funksiyasi chaqirildi");
     const productsDiv = document.getElementById("products");
     if (!productsDiv) {
-        console.error("Products container not found!");
+        console.error("Products container topilmadi!");
         document.getElementById("error-message").style.display = "block";
         return;
     }
     productsDiv.innerHTML = "";
     products.forEach(product => {
+        console.log(`Mahsulot render qilinmoqda: ${product.id}`);
         const card = document.createElement("div");
         card.className = "product-card bg-white rounded-lg shadow-md p-4";
         card.innerHTML = `
@@ -38,12 +40,13 @@ function renderProducts() {
 }
 
 function updateQuantity(productId, change) {
+    console.log(`updateQuantity chaqirildi: productId=${productId}, change=${change}`);
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+        console.error(`Mahsulot topilmadi: ${productId}`);
+        return;
+    }
     if (!cart[productId]) {
-        const product = products.find(p => p.id === productId);
-        if (!product) {
-            console.error(`Product with ID ${productId} not found!`);
-            return;
-        }
         cart[productId] = { id: productId, qty: 0, type: "product", name_uz: product.name_uz, name_ru: product.name_ru, price: product.price };
     }
     cart[productId].qty = Math.max(0, (cart[productId].qty || 0) + change);
@@ -54,50 +57,67 @@ function updateQuantity(productId, change) {
     if (qtyElement) {
         qtyElement.textContent = cart[productId] ? cart[productId].qty : 0;
     } else {
-        console.error(`Quantity element for ${productId} not found!`);
+        console.error(`qty-${productId} elementi topilmadi`);
     }
     updateTotal();
 }
 
 function updateTotal() {
+    console.log("updateTotal funksiyasi chaqirildi");
     const total = Object.values(cart).reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalElement = document.getElementById("total-price");
     if (totalElement) {
         totalElement.textContent = formatPrice(total);
     } else {
-        console.error("Total price element not found!");
+        console.error("total-price elementi topilmadi");
     }
     const addToCartBtn = document.getElementById("add-to-cart");
     if (addToCartBtn) {
         addToCartBtn.disabled = total === 0;
     } else {
-        console.error("Add to cart button not found!");
+        console.error("add-to-cart tugmasi topilmadi");
     }
 }
 
-document.getElementById("add-to-cart").addEventListener("click", () => {
-    if (Object.keys(cart).length > 0) {
-        try {
-            window.Telegram.WebApp.sendData(JSON.stringify(Object.values(cart)));
-            window.Telegram.WebApp.close();
-        } catch (e) {
-            console.error("Failed to send data to Telegram:", e);
+function initializeApp() {
+    console.log("initializeApp funksiyasi chaqirildi");
+    const addToCartBtn = document.getElementById("add-to-cart");
+    if (addToCartBtn) {
+        addToCartBtn.addEventListener("click", () => {
+            console.log("Savatga Qo‘shish tugmasi bosildi, cart:", cart);
+            if (Object.keys(cart).length > 0) {
+                try {
+                    window.Telegram.WebApp.sendData(JSON.stringify(Object.values(cart)));
+                    console.log("Ma’lumot Telegram’ga yuborildi:", JSON.stringify(Object.values(cart)));
+                    window.Telegram.WebApp.close();
+                } catch (e) {
+                    console.error("Telegram’ga ma’lumot yuborishda xato:", e);
+                    document.getElementById("error-message").style.display = "block";
+                }
+            }
+        });
+    } else {
+        console.error("add-to-cart tugmasi topilmadi");
+    }
+
+    try {
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            userLang = window.Telegram.WebApp.initDataUnsafe?.user?.language_code === "ru" ? "ru" : "uz";
+            console.log("Telegram Web App ishga tushirildi, userLang:", userLang);
+        } else {
+            console.error("Telegram Web App mavjud emas!");
             document.getElementById("error-message").style.display = "block";
         }
-    }
-});
-
-// Telegram Web App ishga tushirish
-try {
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.ready();
-        userLang = window.Telegram.WebApp.initDataUnsafe?.user?.language_code === "ru" ? "ru" : "uz";
-    } else {
-        console.error("Telegram Web App is not available!");
+    } catch (e) {
+        console.error("Telegram Web App ishga tushirishda xato:", e);
         document.getElementById("error-message").style.display = "block";
     }
-} catch (e) {
-    console.error("Telegram Web App initialization failed:", e);
-    document.getElementById("error-message").style.display = "block";
+    renderProducts();
 }
-renderProducts();
+
+// DOM yuklanganda ishga tushirish
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("DOM yuklandi, initializeApp chaqirilmoqda");
+    initializeApp();
+});
